@@ -1,0 +1,21 @@
+# The grid is a square, edge_length x edge_length. I.e., there will
+# edge_length^2 hive sites. By default, we simulation one million sites.
+#
+edge_length:	10
+
+# The probability that a site is domestic. Every site is either domestic or feral.
+#
+prob_domestic: 0
+
+# Since there are no domestic hives, there can be no queen breeders.
+#
+number_queen_breeders:		0
+
+# The directory to store results in.
+#
+results_dir:		results/feraltest00
+
+name: feraltest00
+description: All of the hives are feral. 100 hives.
+
+properties_file: propertyfiles/defaultvalues.prop

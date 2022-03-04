@@ -1,0 +1,127 @@
+# One should get the exact same simulation result every time for
+# a given seed. If a seed is not provided (if either the property
+# is not set or is set to the empty string), the current time in
+# milliseconds is used. The seed is recorded in the properties,
+# so that one can repeat a run exactly.
+#
+seed:
+
+# The grid is a square, edge_length x edge_length. I.e., there will
+# edge_length^2 hive sites. By default, we simulation one million sites.
+#
+edge_length:	1000
+
+# The least number of drones a flying queen will mate with.
+#
+min_drones:	10
+
+# The most drones a flying queen will mate with. The actual number is selected
+# from a uniform distribution between the two (inclusive).
+#
+max_drones:	20
+
+# The distance (steps in the grid, north, south, east or west) that the queen flies on her mating flight.
+#
+mating_flight_distance: 2
+
+# The distance that a swarm will fly to find a new hive.
+#
+swarm_distance: 2
+
+# The distance (steps in the grid, so manhattan distance) that drones fly to the mating location.
+drone_participation_distance: 2
+
+# The probability that a site is domestic. Every site is either domestic or feral.
+#
+prob_domestic: 0.25
+
+# There are two supported distributions of the number of hives at a (domestic) apiary:
+#  > linear
+#	The number is chosen from a linear distribution [number_of_hives_min .. number_of_hives_max]
+#  > three_way_norm
+#	Tne number is chosen from one of three folded normal distributions, with the equation
+#	being (int)(nextGaussian() * multiplier + 1). Each of the three folded normal distributions
+#	has its own multiplier: 2, 10, and 25. The three probability properties number_of_hives_m0,
+#	number_of_hives_m1, and number_of_hives_m2 control the liklihood of a given domestic site's
+#	number of hives being chosen using the associated half-normal distribution.
+
+# if using three-way-norm
+number_of_hives_distribution: three-way-norm
+number_of_hives_m0: 0.75
+number_of_hives_m1: 0.2
+number_of_hives_m2: 0.05
+
+# if using linear
+#
+# number_of_hives_distribution: linear
+# number_of_hives_min: 1
+# number_of_hives_max: 50
+
+# For domestic sites, the age at which a hive is requeened
+#
+requeen_age: 2
+
+
+initial_gene: 0.95
+
+# The number of years to simulate
+#
+sim_length:	100
+
+# The number of sites that are queen breeders.
+#
+number_queen_breeders:		5
+
+# The number of hives that a queen breeder maintains
+#
+queen_breeder_hive_count:	100
+
+# The hive survival model can be 'linear' or 'sigmoid'. Or the name of
+# a HiveSurvivalPropbabilityModel class, for 3rd party models.
+#
+survivalprob.model:	linear
+
+# The distance from the base survival probability to 1.0 that feeding
+# a hive boosts its survival chances. A value from 0.0 (no improvement)
+# to 1.0 (guarentees survival).
+#
+survivalprob.F:		0.5
+
+# For the sigmoid model, M is the multiplier (controls the steepness of
+# the curve) and A is the adjustment (moves the centerline crossing point
+# left or right). See the HiveSurvivalProbabilityModel javadocs for more-
+# complete documentation.
+#
+survivalprob.M:		20
+survivalprob.A:		-1
+
+# Characterizes how worker bees and queens inhereit survival strength from
+# their parents. (Drones have the same genetic strength as their mother.)
+# The two built-in modes are 'ONE_PARENT' and 'AVERAGE'. For 'ONE_PARENT',
+# the mean strength of the child is the strength of one of its two parents,
+# randomly selected. For 'AVERAGE', the mean strength is the average strength
+# of the two parents.
+#
+inheritance_mode: 	AVERAGE
+
+# The child's genetic strength is chosen from a normal distribution, with mean
+# described above and standard deviation specified:
+#
+inheritance_stddev: 	0.05
+
+# If the child's health is above the max value or below 0.0, it is clipped.
+#
+inheritance_max_strength:	0.95
+
+# The base directory for checkpoints and results
+#
+base_dir: 		.
+
+# The directory to store checkpoints in (when we implement checkpoints!)
+#
+checkpoint_dir: 	checkpoints
+
+# The directory to store results in.
+#
+results_dir:		results
+

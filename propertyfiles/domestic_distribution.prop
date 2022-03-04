@@ -1,0 +1,35 @@
+sim_length 0
+
+edge_length:	100
+
+# The probability that a site is domestic. Every site is either domestic or feral.
+#
+prob_domestic: 1
+
+# There are two supported distributions of the number of hives at a (domestic) apiary:
+#  > linear
+#	The number is chosen from a linear distribution [number_of_hives_min .. number_of_hives_max]
+#  > three_way_norm
+#	Tne number is chosen from one of three folded normal distributions, with the equation
+#	being (int)(nextGaussian() * multiplier + 1). Each of the three folded normal distributions
+#	has its own multiplier: 2, 10, and 25. The three probability properties number_of_hives_m0,
+#	number_of_hives_m1, and number_of_hives_m2 control the liklihood of a given domestic site's
+#	number of hives being chosen using the associated half-normal distribution.
+
+# if using three-way-norm
+number_of_hives_distribution: three-way-norm
+number_of_hives_m0: 0.75
+number_of_hives_m1: 0.2
+number_of_hives_m2: 0.05
+
+# The number of sites that are queen breeders.
+#
+number_queen_breeders:		0
+
+results_dir:		results/domestic_distribution
+number_queen_breeders:		0
+
+name: domestic_distribution
+description: All of the hives are domestic. There are no queen breeders. The sim lasts zero years.
+
+properties_file: propertyfiles/defaultvalues.prop
