@@ -11,17 +11,31 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
 
+/**
+ * A two-dimensional grid of {@link Site}s.
+ * 
+ * @author Greg Frazier
+ *
+ */
 public class Grid implements Iterable<Site>, Serializable {
 
 	private static final long serialVersionUID = 1L;
-	Site[][] sites;
-	List<Site> listOfSites;
-	Site[] queenBreeders;
-	private final BeeHealthSimulation SIM;
 
-	public Grid(int edgeLength, long seed, BeeHealthSimulation sim, Random random) {
+	/** A square, 2-D matrix of sites. */
+	private Site[][] sites;
+
+	/** The same sites that are in the 2-D matrix, but held in a 1-D list. */
+	private List<Site> listOfSites;
+
+	/** The sites that breed domestic queens; a subset of the above sites. */
+	private Site[] queenBreeders;
+
+	/** The simulation that this grid constitutes. */
+	private final BeeHealthSimulation sim;
+
+	public Grid(int edgeLength, BeeHealthSimulation sim, Random random) {
 		super();
-		SIM = sim;
+		this.sim = sim;
 		sites = new Site[edgeLength][edgeLength];
 		listOfSites = new ArrayList<>(edgeLength * edgeLength);
 		for (int x = 0; x < edgeLength; x++) {
@@ -186,7 +200,7 @@ public class Grid implements Iterable<Site>, Serializable {
 	}
 
 	public BeeHealthSimulation getSim() {
-		return SIM;
+		return sim;
 	}
 
 	public Site getSiteInDirection(Site origin, Direction dir, int distance) {

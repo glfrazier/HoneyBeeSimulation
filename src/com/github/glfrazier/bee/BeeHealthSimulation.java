@@ -10,7 +10,56 @@ import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class BeeHealthSimulation implements Serializable {
+/**
+ * Simulate the "health" of honeybee hives, both domestic and feral. The
+ * simulator models the world as a {@link Grid} of {@link Site}s. (The grid
+ * wraps around, so technically it is a torus.) Each site is either domestic or
+ * feral. If it is domestic, the site may host multiple {@link Hive}s; if it is
+ * feral, the site will only have a single {@link Hive}. The simulation breaks
+ * each year into three actions:
+ * <ol>
+ * <li>{@link Site#overWinter()}, where hives may perish;</li>
+ * <li>{@link Site#replaceDeadHives()}, where domestic sites replace dead hives
+ * by acquiring a mated queen from a queen-breeder and wild sites are
+ * repopulated by a swarm from a nearby hive; and</li>
+ * <li>{@link Site#requeenIfOld()}, where domestic sites replace aging queens
+ * with a mated queen acquired from a queen-breeder.</li>
+ * </ol>
+ * 
+ * The simulation is designed to explore the impact of domestic honeybee
+ * husbandry practices on both domestic and feral hive health, with a focus on
+ * four husbandry practices:
+ * <ol>
+ * <li>The feeding of hives (and other practices that increase the probability
+ * of a hive suriving);</li>
+ * <li>The co-location hives, with 20+ co-located hives not unusual and
+ * commercial operatings having up to 100 co-located hives;</li>
+ * <li>The purchase of queens from a small number of professional queen
+ * breeders; and</li>
+ * <li>The unselective care/breeding of hives.</li>
+ * 
+ * This simulation does not attempt to model bee genetics. Rather, it leverages
+ * two basic tenets of genetics and evolution:
+ * <ul>
+ * <li>Genetic traits result in a probability of survival; and</li>
+ * <li>Offspring inherit a combination of their parents' genes (or, in the case
+ * of drones, just their mother's genes);</li>
+ * </ul>
+ * So, genes are modeled as a probability of surviving the winter. The hive's
+ * probability of survival is a combination of the queen and the drones'
+ * survival probabilities, and a child queen's survival strength is selected
+ * from a normal distribution centered on a combination of the mother queen and
+ * one of the drone's survival strengths.
+ * 
+ * See the documentation for {@link #main(String[])} for a brief summary of how
+ * to run the simulation, or the README at
+ * https://github.com/glfrazier/BeeHealthSimulation.git for more comprehensive
+ * documentation of the simulation.
+ * 
+ * @author Greg Frazier
+ *
+ */
+public class BeeHealthSimulation implements Serializable, Runnable {
 
 	private static final long serialVersionUID = 1L;
 
@@ -21,7 +70,12 @@ public class BeeHealthSimulation implements Serializable {
 	private int edgeLength;
 	private int simLength;
 
+	/**
+	 * The model that controls how workers and queens inherit traits from their
+	 * parents.
+	 */
 	private InheritanceModel iModel;
+
 	private Statistics stats;
 
 	private Properties props;
@@ -30,10 +84,13 @@ public class BeeHealthSimulation implements Serializable {
 		random = new Random();
 	}
 
-	public void initialize() {
-		initialize(System.getProperties());
-	}
-
+	/**
+	 * Initialize the simulation using properties in the <code>props</code>
+	 * argument. There are no default values: if a required property is not present,
+	 * the simulation terminates with an appropriate error message.
+	 * 
+	 * @param props the properties that configure the simulation
+	 */
 	public void initialize(Properties props) {
 		LOGGER.fine("Entered simulation initialization.");
 		this.props = props;
@@ -53,12 +110,15 @@ public class BeeHealthSimulation implements Serializable {
 		if (props.containsKey("seed")) {
 			random.setSeed(Long.parseLong(props.getProperty("seed")));
 		}
-		grid = new Grid(edgeLength, random.nextLong(), this, random);
+		grid = new Grid(edgeLength, this, random);
 		LOGGER.fine("Grid constructed.");
 		grid.initialize(random, props);
 		LOGGER.fine("Completed simulation initialization.");
 	}
 
+	/**
+	 * Run the simulation.
+	 */
 	public void run() {
 		stats.startSimulation();
 		// Record the statistics of the initial system, before it has processed any
@@ -155,43 +215,6 @@ public class BeeHealthSimulation implements Serializable {
 		return 0;
 	}
 
-//	/**
-//	 * Parse a property that specifies a probability and has a default value.
-//	 * 
-//	 * @param props        the properties
-//	 * @param propName     the name of the property
-//	 * @param defaultValue the default value of the property, in string form
-//	 * @return the value of the property
-//	 */
-//	public static double getProbabilityProperty(Properties props, String propName, String defaultValue) {
-//		try {
-//			double d = Double.parseDouble(defaultValue);
-//			if (d < 0 || d > 1) {
-//				throw new IllegalArgumentException(defaultValue + " is outside the range [0..1].");
-//			}
-//		} catch (NumberFormatException e) {
-//			System.err.println(
-//					"The default value for the property '" + propName + "' is not a number! It is " + defaultValue);
-//			throw e;
-//		}
-//		String probStr = props.getProperty(propName, defaultValue);
-//		try {
-//			double prob = Double.parseDouble(probStr);
-//			if (prob < 0 || prob > 1) {
-//				System.err.println("'" + propName
-//						+ "' is a probability, and so must be in the range [0..1]. You specified " + prob);
-//				System.exit(-1);
-//			}
-//			return prob;
-//		} catch (NumberFormatException e) {
-//			System.err.println("The value for the property '" + propName
-//					+ "' is not a number. It is a probability, and so must be a number in the range [0..1].");
-//			System.exit(-1);
-//		}
-//		// unreachable code
-//		return 0;
-//	}
-
 	/**
 	 * Obtain a String property.
 	 * 
@@ -233,34 +256,6 @@ public class BeeHealthSimulation implements Serializable {
 		return 0;
 	}
 
-//	/**
-//	 * Parse a property that specifies a number that has a default value.
-//	 * 
-//	 * @param props        the properties
-//	 * @param propName     the name of the property
-//	 * @param defaultValue the default value of the property, in string form
-//	 * @return the value of the property
-//	 */
-//	public static double getDoubleProperty(Properties props, String propName, String defaultValue) {
-//		try {
-//			Double.parseDouble(defaultValue);
-//		} catch (NumberFormatException e) {
-//			System.err.println(
-//					"The default value for the property '" + propName + "' is not a number! It is " + defaultValue);
-//			throw e;
-//		}
-//		String dStr = props.getProperty(propName, defaultValue);
-//		try {
-//			double prob = Double.parseDouble(dStr);
-//			return prob;
-//		} catch (NumberFormatException e) {
-//			System.err.println("The value for the property '" + propName + "' is not a number---it is " + dStr);
-//			System.exit(-1);
-//		}
-//		// unreachable code
-//		return 0;
-//	}
-
 	/**
 	 * Parse a property that specifies an integer.
 	 * 
@@ -284,34 +279,6 @@ public class BeeHealthSimulation implements Serializable {
 		// unreachable code
 		return 0;
 	}
-
-//	/**
-//	 * Parse a property that specifies a number that has a default value.
-//	 * 
-//	 * @param props        the properties
-//	 * @param propName     the name of the property
-//	 * @param defaultValue the default value of the property, in string form
-//	 * @return the value of the property
-//	 */
-//	public static int getIntProperty(Properties props, String propName, String defaultValue) {
-//		try {
-//			Integer.parseInt(defaultValue);
-//		} catch (NumberFormatException e) {
-//			System.err.println(
-//					"The default value for the property '" + propName + "' is not an integer! It is " + defaultValue);
-//			throw e;
-//		}
-//		String iStr = props.getProperty(propName, defaultValue);
-//		try {
-//			int i = Integer.parseInt(iStr);
-//			return i;
-//		} catch (NumberFormatException e) {
-//			System.err.println("The value for the property '" + propName + "' is not a number. It is " + iStr);
-//			System.exit(-1);
-//		}
-//		// unreachable code
-//		return 0;
-//	}
 
 	@SuppressWarnings("rawtypes")
 	private static Class[] argTypes = { java.util.Properties.class };
@@ -337,6 +304,25 @@ public class BeeHealthSimulation implements Serializable {
 		return null;
 	}
 
+	/**
+	 * The arguments to the simulation are properties: name/value pairs separated by
+	 * an equal sign. The typical way to run a simulation is to create a properties
+	 * file, formatted in accordance to <code>java.util.Properties</code>, and then
+	 * include the argument "properties_file=<filename>" in the argument list. That
+	 * properties file may, as one if its properties, specify a second properties
+	 * file to be loaded. Properties specified on the command line take precedence
+	 * over properties in a file, and properties encountered in the first file take
+	 * precedence over those specified in subsequent files. Thus,
+	 * 
+	 * <pre>
+	 * java -cp bin com.github.glfrazier.bee.BeeHealthSimulation properties_file=propertyfiles/defaultvalues.prop sim_length=10
+	 * </pre>
+	 * 
+	 * will use the properties specified in defaultvalues.prop except for the
+	 * sim_length property, which will have the value 10.
+	 * 
+	 * @param args
+	 */
 	public static void main(String[] args) {
 		ConsoleHandler handler = new ConsoleHandler();
 		handler.setLevel(Level.ALL);
