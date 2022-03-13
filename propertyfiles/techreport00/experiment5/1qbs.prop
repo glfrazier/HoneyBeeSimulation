@@ -1,0 +1,8 @@
+name: Experiment 5, 1 queen breeders
+name_data: $g_0 = 0.80, survivalprob.F=0.0, prob_domestic=1.0, number_queen_breeders=1$
+description: 10k sites. All sites are domestic. One hive per site. 1 queen breeder.
+
+number_queen_breeders:    	1
+results_dir:		expt5/qb=1
+
+properties_file: propertyfiles/techreport00/experiment5/10000qbs.prop

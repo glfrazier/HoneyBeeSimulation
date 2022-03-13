@@ -1,0 +1,12 @@
+# gnuplot file for experiment 2
+#
+set terminal jpeg
+set output "baseline_fed.jpg"
+set title "Probability of Survival, Domestic Bees are Fed"
+set key right center
+
+set xlabel "Year"
+set ylabel "Probability of Survival"
+
+plot '../../../results/techreport00/expt1/g0=0.90/000/avgFeralHiveStrength.csv' with lines title "Feral" , \
+     '../../../results/techreport00/expt2/g0=0.90,survivalprob.F=0.5/000/avgDomesticHiveStrength.csv' with lines title "Domestic"

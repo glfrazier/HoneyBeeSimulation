@@ -1,0 +1,20 @@
+# gnuplot file for experiment 1
+set terminal jpeg
+set output "histogram.jpg"
+set title "Histogram, Hive Strength"
+set key left
+set xlabel "Hive Strength"
+set ylabel "Number of Hives at that Strength"
+
+
+set xrange [ -0.05 : 1.05 ] noreverse writeback noextend
+# set yrange [ 0 : 3000 ] noreverse writeback noextend
+# set style fill solid    #set plot style
+set style fill transparent solid 0.4
+set boxwidth 0.018
+
+# histogram_data.pl data_column minVal maxVal binWidth filename
+#
+plot '< "../../../scripts/histogram_data.pl" 7 0.02 0.9601 0.02 ../../../results/techreport00/expt1/g0=0.90/000/sites.csv' with boxes title "g_0 = 0.90", \
+     '< "../../../scripts/histogram_data.pl" 7 0.02 0.9601 0.02 ../../../results/techreport00/expt1/g0=0.50/000/sites.csv' with boxes title "g_0 = 0.50"
+

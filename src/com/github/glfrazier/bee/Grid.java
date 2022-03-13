@@ -4,8 +4,8 @@ import static com.github.glfrazier.bee.BeeHealthSimulation.LOGGER;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
@@ -28,7 +28,7 @@ public class Grid implements Iterable<Site>, Serializable {
 	private List<Site> listOfSites;
 
 	/** The sites that breed domestic queens; a subset of the above sites. */
-	private Site[] queenBreeders;
+	List<Site> queenBreeders;
 
 	/** The simulation that this grid constitutes. */
 	private final BeeHealthSimulation sim;
@@ -48,7 +48,7 @@ public class Grid implements Iterable<Site>, Serializable {
 	}
 
 	public Set<Site> getNeighborsOf(Site n, int radius) {
-		Set<Site> result = new HashSet<>();
+		Set<Site> result = new LinkedHashSet<>();
 		for (int xOffset = -radius; xOffset < radius + 1; xOffset++) {
 			int m = radius - xOffset;
 			for (int yOffset = -m; yOffset < m + 1; yOffset++) {
@@ -98,20 +98,13 @@ public class Grid implements Iterable<Site>, Serializable {
 	 */
 	public Hive purchaseMatedQueen(Site site, Random siteRandom) {
 		// Randomly choose a breeding site
-		Hive source = randomBreedingHive(siteRandom);
-		for (int i = 0; source == null && i < 100; i++) {
-			source = randomBreedingHive(siteRandom);
-		}
-		if (source == null) {
-			System.err.println("Simulation failure: not finding a Queen Breeder with living hives.");
-			System.exit(-1);
-		}
+		Hive motherHive = randomBreedingHive(siteRandom);
 
 		// Produce the queen
-		double queen = source.getBabyQueen();
+		double queen = motherHive.getBabyQueen();
 
 		// Fly the queen
-		double[] drones = source.getSite().matingFlight(source);
+		double[] drones = motherHive.getSite().matingFlight(motherHive);
 
 		// Create and return the new hive
 		Hive hive = new Hive(queen, drones, site, siteRandom.nextLong());
@@ -119,30 +112,47 @@ public class Grid implements Iterable<Site>, Serializable {
 	}
 
 	private Hive randomBreedingHive(Random siteRandom) {
-		// select a queen breeding site
-		Site site = queenBreeders[siteRandom.nextInt(queenBreeders.length)];
-		// select one of the hives at that site
-		Hive hive = site.hives.get(siteRandom.nextInt(site.hives.size()));
-		for (int i = 0; i < 100 && hive.dead; i++) {
-			hive = site.hives.get(siteRandom.nextInt(site.hives.size()));
-		}
-		if (hive.dead) {
-			for (Hive h : site.hives) {
-				if (!h.dead) {
-					hive = h;
+		// select a queen breeding site to be the first one to check
+		int lastSiteIndex = siteRandom.nextInt(queenBreeders.size());
+		for (int i = lastSiteIndex + 1; true; i++) {
+			if (i == queenBreeders.size()) {
+				i = 0;
+			}
+			Site site = queenBreeders.get(i);
+			List<Hive> siteHives = site.syncCopyHives();
+			int lastHiveIndex = siteRandom.nextInt(siteHives.size());
+			for (int j = lastHiveIndex + 1; true; j++) {
+				if (j == siteHives.size()) {
+					j = 0;
+				}
+				Hive hive = siteHives.get(j);
+				if (!hive.dead) {
+					return hive;
+				}
+				if (j == lastHiveIndex) {
 					break;
 				}
 			}
+			if (i == lastSiteIndex) {
+				break;
+			}
 		}
-		if (hive.dead) {
-			LOGGER.warning("The Queen Breeder " + site + " has all dead hives.");
-			return null;
-		}
-		return hive;
+		LOGGER.severe("EVERY Queen-Breeder hive is dead.");
+		System.exit(-1);
+		// unreachable code
+		return null;
 	}
 
 	public void initialize(Random rand, Properties props) {
-		int numberOfQueenBreeders = Integer.parseInt(props.getProperty("number_queen_breeders"));
+		boolean allDomesticSitesAreQueenBreeders = false;
+		int numberOfQueenBreeders = 0;
+		String nqb = props.getProperty("number_queen_breeders");
+		if ("all".equals(nqb)) {
+			allDomesticSitesAreQueenBreeders = true;
+		} else {
+			numberOfQueenBreeders = Integer.parseInt(props.getProperty("number_queen_breeders"));
+		}
+
 		int queenBreederHiveCount = Integer.parseInt(props.getProperty("queen_breeder_hive_count"));
 
 		if (numberOfQueenBreeders > listOfSites.size()) {
@@ -156,45 +166,68 @@ public class Grid implements Iterable<Site>, Serializable {
 		if (numberOfQueenBreeders > 0 && BeeHealthSimulation.getProbabilityProperty(props, "prob_domestic") == 0) {
 			LOGGER.warning("You have specified a non-zero number of queen breeders, but 'prob_domestic' is zero.");
 		}
-		queenBreeders = new Site[numberOfQueenBreeders];
-		LOGGER.fine("Creating " + queenBreeders.length + " queen breeding sites.");
-		List<Site> qbCandidateList = new ArrayList<>(listOfSites.size());
-		qbCandidateList.addAll(listOfSites);
-		for (int i = 0; i < queenBreeders.length && !qbCandidateList.isEmpty(); i++) {
-			Site candidate = qbCandidateList.remove(rand.nextInt(qbCandidateList.size()));
-			while (true) {
-				synchronized (candidate) {
-					if (!candidate.initialized) {
-						// We found an uninitialized site! Make it one of our Queen Breeder sites, than
-						// break out of the while loop
-						candidate.domestic = true;
-						candidate.setQueenBreeder();
-						candidate.finishInitialize(props, queenBreederHiveCount);
-						queenBreeders[i] = candidate;
-						break;
+		queenBreeders = new ArrayList<Site>();
+		if (!allDomesticSitesAreQueenBreeders) {
+			List<Site> qbCandidateList = new ArrayList<>(listOfSites.size());
+			qbCandidateList.addAll(listOfSites);
+			for (int i = 0; i < numberOfQueenBreeders && !qbCandidateList.isEmpty(); i++) {
+
+				// Use the version that grabs the candidates in order ('remove(0)') when doing
+				// test1.
+				//
+				Site candidate = qbCandidateList.remove(rand.nextInt(qbCandidateList.size()));
+				// Site candidate = qbCandidateList.remove(0);
+				//////////////////////////////////////////////////////////////////////////////
+
+				while (true) {
+					synchronized (candidate) {
+						if (!candidate.initialized) {
+							// We found an uninitialized site! Make it one of our Queen Breeder sites, than
+							// break out of the while loop
+							candidate.domestic = true;
+							candidate.setQueenBreeder();
+							// A hack to try to make the random numbers come out the same whether
+							// allDomesticSitesAreQueenBreeders is set to true or not
+							candidate.random.nextDouble();
+
+							candidate.finishInitialize(props, queenBreederHiveCount);
+							queenBreeders.add(candidate);
+							break;
+						}
 					}
 				}
 			}
 		}
 		// Now initialize the remaining sites. We will not re-initialize the Queen
 		// Breeder sites
-		Set<Site> sitesToInitialize = new HashSet<>();
+		Set<Site> sitesToInitialize = new LinkedHashSet<>();
 		sitesToInitialize.addAll(listOfSites);
 		for (Site qb : queenBreeders) {
 			sitesToInitialize.remove(qb);
 		}
-		LOGGER.fine("Initializing " + sitesToInitialize.size() + " sites.");
+		// LOGGER.fine("Initializing " + sitesToInitialize.size() + " sites.");
 		for (Site site : sitesToInitialize) {
-			site.initialize(props);
+			site.initialize(props, allDomesticSitesAreQueenBreeders);
+			if (allDomesticSitesAreQueenBreeders && site.domestic) {
+				queenBreeders.add(site);
+			}
 		}
 	}
 
-	public List<Hive> getNeighborhoodHives(Site site, int radius) {
+	public List<Hive> getNeighborhoodLivingHives(Site site, int radius) {
 		Set<Site> nbrs = getNeighborsOf(site, radius);
 		List<Hive> hives = new ArrayList<>();
-		hives.addAll(site.hives);
+		// site is not a neighbor of itself, so explicitly add the hives
+		hives.addAll(site.syncCopyHives());
 		for (Site nbr : nbrs) {
-			hives.addAll(nbr.hives);
+			List<Hive> nbrHives = nbr.syncCopyHives();
+			hives.addAll(nbrHives);
+		}
+		for (Iterator<Hive> iter = hives.iterator(); iter.hasNext();) {
+			Hive h = iter.next();
+			if (h.dead) {
+				iter.remove();
+			}
 		}
 		return hives;
 	}
@@ -221,6 +254,30 @@ public class Grid implements Iterable<Site>, Serializable {
 			break;
 		}
 		return sites[x][y];
+	}
+
+	public List<Hive> getNeighborhoodFeralDeadHives(Site site, int radius) {
+		Set<Site> nbrs = getNeighborsOf(site, radius);
+		List<Hive> deadhives = new ArrayList<>();
+		for (Site nbrSite : nbrs) {
+			if (nbrSite.domestic) {
+				continue;
+			}
+			for (Hive h : nbrSite.syncCopyHives()) {
+				if (h.dead) {
+					deadhives.add(h);
+				}
+			}
+		}
+		return deadhives;
+	}
+
+	public int size() {
+		return listOfSites.size();
+	}
+
+	public Site getSite(int index) {
+		return listOfSites.get(index);
 	}
 
 }

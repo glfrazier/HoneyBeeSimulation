@@ -1,0 +1,17 @@
+# gnuplot file for experiment 1
+set terminal jpeg
+set output "hivestrength.jpg"
+set title "Average Hive Strength at Equilibirum"
+# set key right center
+set key off
+
+set yrange [0.7:0.9]
+
+set xlabel "Number of Queen Breeders"
+set ylabel "Hive Strength"
+set logscale x
+
+set xtics nomirror
+set ytics nomirror
+
+plot '< "../../../scripts/tailaverager.sh" N 5 2 ../../../results/techreport00/expt5/qb=%%/000/avgDomesticHiveStrength.csv 1 10 100 1000 10000' with lines

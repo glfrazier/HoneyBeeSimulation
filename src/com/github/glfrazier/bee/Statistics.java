@@ -170,6 +170,20 @@ public class Statistics implements Serializable {
 		LOGGER.fine("Ending summer " + thisYear);
 		LOGGER.fine("\tdomesticLiveHives=" + thisYearStats.domesticLiveHives);
 		LOGGER.fine("\tdomesticDeadHives=" + thisYearStats.domesticDeadHives);
+		if (thisYearStats.domesticSwarms != thisYearStats.domesticSwarmsThatCouldNotFindSite
+				+ thisYearStats.domesticSwarmsThatFoundSite) {
+			LOGGER.severe("In year " + thisYear + ", domesticSwarms(" + thisYearStats.domesticSwarms
+					+ ") != domesticSwarmsThatCouldNotFindSite (" + thisYearStats.domesticSwarmsThatCouldNotFindSite
+					+ ") + domesticSwarmsThatFoundSite (" + thisYearStats.domesticSwarmsThatFoundSite + ")");
+			System.exit(-1);
+		}
+		if (thisYearStats.feralSwarms != thisYearStats.feralSwarmsThatCouldNotFindSite
+				+ thisYearStats.feralSwarmsThatFoundSite) {
+			LOGGER.severe("In year " + thisYear + ", feralSwarms(" + thisYearStats.feralSwarms
+					+ ") != feralSwarmsThatCouldNotFindSite (" + thisYearStats.feralSwarmsThatCouldNotFindSite
+					+ ") + feralSwarmsThatFoundSite (" + thisYearStats.feralSwarmsThatFoundSite + ")");
+			System.exit(-1);
+		}
 		statistics.add(thisYearStats);
 		thisYearStats = new PerYearStatistics();
 		thisYear++;
@@ -180,11 +194,26 @@ public class Statistics implements Serializable {
 	}
 
 	private class PerYearStatistics {
+		public int domesticHivesCreated;
 		public int domesticDeadHives;
 		public int domesticLiveHives;
+		public int domesticKilledByWinter;
+		public int domesticDiedOfOldAge;
+		public int domesticMatingFlightFailures;
+		public int domesticSwarms;
+		public int domesticSwarmsThatCouldNotFindSite;
+		public int domesticSwarmsThatFoundSite;
+		public int domesticHiveRequeened;
 		public double totalDomesticQueenStrength;
+		public int feralHivesCreated;
 		public int feralDeadHives;
 		public int feralLiveHives;
+		public int feralKilledByWinter;
+		public int feralDiedOfOldAge;
+		public int feralMatingFlightFailures;
+		public int feralSwarms;
+		public int feralSwarmsThatCouldNotFindSite;
+		public int feralSwarmsThatFoundSite;
 		public double totalFeralQueenStrength;
 		public int totalDomesticDrones;
 		public int totalFeralDrones;
@@ -227,16 +256,13 @@ public class Statistics implements Serializable {
 		}
 	}
 
-	public void matingFlightFailed() {
-		// thisYearStats.matingFlightFailures++;
-	}
-
 	public void hivesAtEndOfSummer(Site site) {
-		List<Hive> hives = site.hives;
+		List<Hive> hives = site.syncCopyHives();
 		if (LOGGER.getLevel() == Level.FINEST) {
 			LOGGER.finest("Logging site " + site + " at end of summer, year " + thisYear);
-			LOGGER.finest("\tdomesticLiveHives=" + thisYearStats.domesticLiveHives);
-			LOGGER.finest("\ttotalDomesticQueenStrength=" + thisYearStats.totalDomesticQueenStrength);
+			for (Hive h : hives) {
+				LOGGER.finest("\tHive is " + (h.dead ? "dead" : "alive"));
+			}
 		}
 		for (Hive h : hives) {
 			if (site.domestic) {
@@ -292,15 +318,10 @@ public class Statistics implements Serializable {
 				}
 			}
 		}
-		if (LOGGER.getLevel() == Level.FINEST) {
-			LOGGER.finest("Finished ogging site " + site + " at end of summer, year " + thisYear);
-			LOGGER.finest("\tdomesticLiveHives=" + thisYearStats.domesticLiveHives);
-			LOGGER.finest("\ttotalDomesticQueenStrength=" + thisYearStats.totalDomesticQueenStrength);
-		}
 	}
 
 	public void hivesAtEndOfWinter(Site site) {
-		List<Hive> hives = site.hives;
+		List<Hive> hives = site.syncCopyHives();
 		for (Hive h : hives) {
 			if (site.domestic) {
 				if (h.dead) {
@@ -351,6 +372,70 @@ public class Statistics implements Serializable {
 			System.err.println("Encountered a problem recording the state of the simulation at its start.");
 			System.exit(-1);
 		}
+	}
+
+	public void newHiveCreated(boolean domestic) {
+		if (domestic) {
+			thisYearStats.domesticHivesCreated++;
+		} else {
+			thisYearStats.feralHivesCreated++;
+		}
+	}
+
+	public int getHivesCreatedThisYear() {
+		return thisYearStats.domesticHivesCreated + thisYearStats.feralHivesCreated;
+	}
+
+	public void failedToSurviveWinter(boolean domestic) {
+		if (domestic) {
+			thisYearStats.domesticKilledByWinter++;
+		} else {
+			thisYearStats.feralKilledByWinter++;
+		}
+	}
+
+	public void diedOfOldAge(boolean domestic) {
+		if (domestic) {
+			thisYearStats.domesticDiedOfOldAge++;
+		} else {
+			thisYearStats.feralDiedOfOldAge++;
+		}
+	}
+
+	public void matingFlightFailed(boolean domestic) {
+		if (domestic) {
+			thisYearStats.domesticMatingFlightFailures++;
+		} else {
+			thisYearStats.feralMatingFlightFailures++;
+		}
+	}
+
+	public void swarming(boolean domestic) {
+		if (domestic) {
+			thisYearStats.domesticSwarms++;
+		} else {
+			thisYearStats.feralSwarms++;
+		}
+	}
+
+	public void swarmCouldNotFindSite(boolean domestic) {
+		if (domestic) {
+			thisYearStats.domesticSwarmsThatCouldNotFindSite++;
+		} else {
+			thisYearStats.feralSwarmsThatCouldNotFindSite++;
+		}
+	}
+
+	public void swarmFoundSite(boolean domestic) {
+		if (domestic) {
+			thisYearStats.domesticSwarmsThatFoundSite++;
+		} else {
+			thisYearStats.feralSwarmsThatFoundSite++;
+		}
+	}
+
+	public void hiveIsRequeened() {
+		thisYearStats.domesticHiveRequeened++;
 	}
 
 }

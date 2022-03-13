@@ -1,5 +1,6 @@
 package com.github.glfrazier.bee;
 
+import static com.github.glfrazier.bee.BeeHealthSimulation.LOGGER;
 import java.io.Serializable;
 import java.util.Random;
 
@@ -21,37 +22,105 @@ public class Hive implements Serializable {
 	boolean canBreed = false;
 	int age;
 
+	int maxHiveAge;
+
+	int minimumRequeenAge;
+
+	double requeenProbability;
+
+	double probSwarm;
+
+	private BeeHealthSimulation sim;
+
 	public Hive(double queen, double[] drones, Site site, long seed) {
 		this.queenGene = queen;
 		this.droneGenes = drones;
 		this.site = site;
 		this.random = new Random(seed);
-		this.iModel = site.getGrid().getSim().getSimulationInheritanceModel();
-		this.stats = site.getGrid().getSim().getSimulationStatistics();
+		finishConstruction(site.getGrid().getSim(), site.domestic);
+	}
+
+	private Hive(double q, double[] d, long seed, boolean domestic, BeeHealthSimulation sim) {
+		this.queenGene = q;
+		this.droneGenes = d;
+		this.site = null;
+		this.random = new Random(seed);
+		finishConstruction(sim, domestic);
+	}
+
+	private void finishConstruction(BeeHealthSimulation sim, boolean domestic) {
+		this.sim = sim;
+		this.iModel = sim.getSimulationInheritanceModel();
+		this.stats = sim.getSimulationStatistics();
+		this.maxHiveAge = sim.getIntProperty("max_hive_age");
+		this.minimumRequeenAge = sim.getIntProperty("min_requeen_age");
+		this.requeenProbability = sim.getProbabilityProperty("requeen_probability");
+		this.probSwarm = sim.getProbabilityProperty(domestic ? "domestic_prob_swarm" : "feral_prob_swarm");
+		stats.newHiveCreated(domestic);
 	}
 
 	private boolean survivedWinter() {
 		double prob = iModel.getHiveStrength(queenGene, droneGenes);
-		if (site.domestic) {
+		if (site.domestic || (!site.domestic && sim.feralUsesDomesticSurvivalModel)) {
 			// domestic hives are fed, so probability of survival is boosted.
 			// This moves the probability halfway towards 1.0 from its base value.
-			prob = prob + (1 - prob) / 2;
+			prob = prob + (1 - prob) * sim.feedingFactor;
 		}
 		return random.nextDouble() < prob;
 	}
 
 	/**
-	 * Over-winter this hive. If it survives the winter, it will be able to breed
-	 * the next year. If it doesn't... it's dead.
+	 * Over-winter this hive. If the hive is dead, do nothing. If the hive is alive,
+	 * it will die if it is too old ({@link #age} > {@link #maxHiveAge}) or it may
+	 * die stochastically ({@link #survivedWinter()}. If this hive survives the
+	 * winter, its {@link #age} is incremented and {@link #canBreed} is set to
+	 * <code>true</code>.
 	 * 
 	 * @param rand
 	 */
 	public void overWinter() {
-		if (!survivedWinter()) {
+		if (dead) {
+			return;
+		}
+		if (age >= maxHiveAge) {
+			if (thisIsTheLastQueenBreeder()) {
+				// the last queen breeder in the simulation is not allowed to die!
+				LOGGER.info(this + " is the last queen breeder alive, and so cannot die of old age.");
+				return;
+			}
 			dead = true;
-		} else {
-			canBreed = true;
-			age++;
+			stats.diedOfOldAge(site.domestic);
+			return;
+		}
+		if (!survivedWinter()) {
+			if (thisIsTheLastQueenBreeder()) {
+				// the last queen breeder in the simulation is not allowed to die!
+				LOGGER.info(this + " is the last queen breeder alive, and so cannot fail to overwinter.");
+				return;
+			}
+			dead = true;
+			stats.failedToSurviveWinter(site.domestic);
+			return;
+		}
+		canBreed = true;
+		age++;
+	}
+
+	private boolean thisIsTheLastQueenBreeder() {
+		if (!site.isQueenBreeder()) {
+			return false;
+		}
+		// Only one queen breeder at a time can check to see if it is the last queen
+		// breeder
+		synchronized (site.getGrid().queenBreeders) {
+			for (Site s : site.getGrid().queenBreeders) {
+				for (Hive h : s.syncCopyHives()) {
+					if ((h != this) && !h.dead) {
+						return false;
+					}
+				}
+			}
+			return true;
 		}
 	}
 
@@ -74,19 +143,19 @@ public class Hive implements Serializable {
 	 * @return <code>null</code> if this hive is dead or !canBreed. Otherwise, it
 	 *         returns a Hive with the current queen and drones.
 	 */
-	public synchronized Hive swarm(Site site) {
+	private Hive swarm() {
 		if (dead) {
-			// A dead hive cannot swarm
-			return null;
+			throw new IllegalStateException("You asked a dead hive to swarm!");
 		}
 		if (!canBreed) {
-			// A hive in its first summer cannot swarm
+			LOGGER.warning("You asked an unbreedable hive to swarm.");
 			return null;
 		}
 		// Create a new hive using this mated queen
-		Hive swarm = new Hive(queenGene, droneGenes, site, random.nextLong());
+		Hive swarm = new Hive(queenGene, droneGenes, random.nextLong(), site.domestic, site.getGrid().getSim());
 		// Replace the queen in this hive with one of her daughters
 		queenGene = getBabyQueen();
+		age = 0;
 
 		// The virgin queen mates!
 		droneGenes = site.matingFlight(this);
@@ -95,7 +164,7 @@ public class Hive implements Serializable {
 			// 2*matingFlightDistance of this hive. Our simplistic approach to handling this
 			// event is to say that the hive is dead.
 			dead = true;
-			stats.matingFlightFailed();
+			stats.matingFlightFailed(site.domestic);
 		}
 		// Technically, I believe a hive *can* swarm multiple times in a single year.
 		// But we are not doing that in this simulation. A decision to reexamine.
@@ -112,6 +181,64 @@ public class Hive implements Serializable {
 
 	public double getHiveStrength() {
 		return iModel.getHiveStrength(queenGene, droneGenes);
+	}
+
+	public boolean requeen() {
+		if (!site.domestic) {
+			LOGGER.severe("You asked whether to requeen a feral hive!");
+			System.exit(-1);
+		}
+		// No! Allow for the possibility that domestic bee keepers do not know how old
+		// their queen is. This all gets subsumed by requeenProbability.
+		//
+		// if (age >= maxHiveAge) {
+		// return true;
+		// }
+		if (age >= minimumRequeenAge) {
+			boolean result = random.nextDouble() < requeenProbability;
+			if (result) {
+				stats.hiveIsRequeened();
+			}
+			return result;
+		}
+		return false;
+	}
+
+	/**
+	 * Both domestic and feral hives may swarm.
+	 */
+	public void swarmIfAppropriate() {
+		// A dead hive cannot swarm
+		if (dead) {
+			return;
+		}
+		// A hive cannot swarm its first year.
+		if (age < 1) {
+			return;
+		}
+		// probSwarm was set appropriately per the domestic or feral nature of the hive.
+		if (random.nextDouble() < probSwarm) {
+			stats.swarming(site.domestic);
+			// The hive will swarm regardless of whether it can find a site to live in.
+			Hive swarmingBees = swarm();
+			// Now let's see if there is a place for this swarm to live.
+			Hive destination = site.findNearbyFeralDeadHive();
+			if (destination != null) {
+				stats.swarmFoundSite(site.domestic);
+				destination.receiveSwarm(swarmingBees);
+			} else {
+				swarmingBees.dead = true;
+				stats.swarmCouldNotFindSite(site.domestic);
+			}
+		}
+	}
+
+	private void receiveSwarm(Hive swarmingBees) {
+		this.queenGene = swarmingBees.queenGene;
+		this.droneGenes = swarmingBees.droneGenes;
+		this.age = swarmingBees.age;
+		this.dead = false;
+		this.canBreed = false;
 	}
 
 }

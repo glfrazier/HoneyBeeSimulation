@@ -1,0 +1,12 @@
+set terminal jpeg
+set output "rate_of_evolution.jpg
+set title "Avg P_S over Time"
+set key right
+set xlabel "Year"
+set ylabel "Avg Probability of Survival"
+
+set ytics nomirror
+set yrange [0:1]
+
+plot '< "head.exe" -n 81 ../../../results/techreport00/expt1/g0=0.75/000/avgFeralHiveStrength.csv' with lines title "10,000 Hives", \
+     '< "head.exe" -n 81 ../../../results/techreport00/expt1/population=100,g0=0.75/000/avgFeralHiveStrength.csv' with lines title "100 Hives"

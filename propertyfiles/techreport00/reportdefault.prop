@@ -1,0 +1,26 @@
+edge_length: 100
+
+domestic_prob_swarm:	1.0
+feral_prob_swarm:	1.0
+
+#
+# The following properties are set to prevent
+# requeening; the experiments that want to
+# include requeening must set the properties
+# as appropriate.
+#
+# Four-year-old hives die.
+max_hive_age:           4
+# A hive must be five years old (!) to requeen
+min_requeen_age:        5
+# And there is zero probability of requeening
+requeen_probability:    0.0
+
+
+# set a base directory specific to this tech report
+#
+base_dir:		results/techreport00
+
+# load the remaining default property values
+#
+properties_file: propertyfiles/defaultvalues.prop

@@ -1,0 +1,20 @@
+# gnuplot file for experiment 1
+set terminal jpeg
+set output "histogram_fed.jpg"
+set title "Histogram, Probability of Survival, Domestic Bees are Fed"
+set key left
+set xlabel "Probability of Survival"
+set ylabel "Number of Hives"
+
+
+set xrange [ -0.05 : 1.05 ] noreverse writeback noextend
+# set yrange [ 0 : 3000 ] noreverse writeback noextend
+# set style fill solid    #set plot style
+set style fill transparent solid 0.7
+set boxwidth 0.018
+
+# histogram_data.pl data_column minVal maxVal binWidth filename
+#
+plot '< "../../../scripts/histogram_data.pl" 7 0.02 0.9601 0.02 ../../../results/techreport00/expt1/g0=0.90/000/sites.csv' with boxes title "Feral", \
+     '< "../../../scripts/histogram_data.pl" 7 0.02 0.9601 0.02 ../../../results/techreport00/expt2/g0=0.90,survivalprob.F=0.5/000/sites.csv' with boxes title "Domestic, Fed"
+

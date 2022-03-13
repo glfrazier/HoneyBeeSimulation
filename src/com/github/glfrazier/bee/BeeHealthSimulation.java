@@ -70,6 +70,8 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 	private int edgeLength;
 	private int simLength;
 
+	private int year;
+
 	/**
 	 * The model that controls how workers and queens inherit traits from their
 	 * parents.
@@ -79,6 +81,12 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 	private Statistics stats;
 
 	private Properties props;
+
+	/** Set by the property feral_uses_domestic_survival_model */
+	public boolean feralUsesDomesticSurvivalModel;
+
+	/** Set by the property survivalprob.F */
+	public double feedingFactor;
 
 	public BeeHealthSimulation() {
 		random = new Random();
@@ -103,6 +111,8 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 			seed = Long.parseLong(seedStr);
 		}
 		random.setSeed(seed);
+		feralUsesDomesticSurvivalModel = getBooleanProperty("feral_uses_domestic_survival_model");
+		feedingFactor = getProbabilityProperty("survivalprob.F");
 		iModel = new InheritanceModel(props);
 		stats = new Statistics(props, this);
 		edgeLength = Integer.parseInt(props.getProperty("edge_length"));
@@ -113,6 +123,16 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 		grid = new Grid(edgeLength, this, random);
 		LOGGER.fine("Grid constructed.");
 		grid.initialize(random, props);
+		// This is a light hack. The simulator, in the results directory, creates
+		// a file for every property whose name begins "name" or "desc". The filename
+		// is "<property_name>.txt", and in the file is the value of that property.
+		// To make it easy to see how many hives were created at the beginning of the
+		// simulation (e.g., to visually confirm that the properties are being
+		// appropriately set), we create a property named
+		// "desc_number_of_hives_<#hives>", and so have a file whose name includes the
+		// number of hives.
+		props.setProperty("desc_number_of_hives_" + stats.getHivesCreatedThisYear(),
+				"" + stats.getHivesCreatedThisYear());
 		LOGGER.fine("Completed simulation initialization.");
 	}
 
@@ -129,8 +149,19 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 		stats.endOfSummer();
 
 		// Now simulate the years.
-		for (int i = 0; i < simLength; i++) {
-			process();
+		int progressInterval = -1;
+		if (props.containsKey("progress_interval")) {
+			progressInterval = getIntProperty(props, "progress_interval");
+		}
+		for (year = 0; year < simLength; year++) {
+			boolean verbose = (progressInterval > 0 && year % progressInterval == 0);
+			if (verbose) {
+				System.out.println("Processing year " + year);
+			}
+			process(verbose);
+			if (verbose) {
+				System.out.println("Completed processing year " + year);
+			}
 		}
 		try {
 			stats.endSimulation();
@@ -138,6 +169,10 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 			e.printStackTrace();
 			System.exit(-1);
 		}
+	}
+
+	public int currentYear() {
+		return year;
 	}
 
 	public InheritanceModel getSimulationInheritanceModel() {
@@ -151,7 +186,10 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 	/**
 	 * Process a year of the simulation. The years go from fall to fall.
 	 */
-	public void process() {
+	public void process(boolean verbose) {
+		if (verbose) {
+			System.out.println("\tOver-wintering the sites.");
+		}
 		for (Site site : grid) {
 			// Over-winter each hive at the site. Each hive will either die or be ready to
 			// swarm the next summer.
@@ -161,21 +199,54 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 			stats.hivesAtEndOfWinter(site);
 		}
 		stats.endOfWinter();
-		for (Site site : grid) {
-			// It is spring. Dead domestic hives will be replaced by purchasing a
-			// queen from a queen breeder. Dead wild hives will be replaced by a swarm from
-			// a nearby hive, if there is a nearby have that is ready to swarm and has not
-			// already done so this summer. (Note: if there are no neighboring swarms
-			// available, a dead wild hive won't be replaced.)
-			site.replaceDeadHives();
+		if (verbose) {
+			System.out.println("\tCompleted over-wintering. Replace dead hives and do some requeening.");
+		}
+		int numberOfThreads = 20;
+		if (props.containsKey("threads")) {
+			numberOfThreads = getIntProperty("threads");
+		}
+		final int NUMBER_OF_THREADS = numberOfThreads;
+//		System.out.println("NUMBER_OF_THREADS=" + NUMBER_OF_THREADS);
+//		System.out.println("Sites and their random numbers:");
+//		for(Site s : grid) {
+//			System.out.println("\t" + s.toString() + ":" + s.random.nextInt());
+//		}
+//		System.out.println("Hives and their random numbers:");
+//		for(Site s : grid) {
+//			for(Hive h : s.syncCopyHives()) {
+//				System.out.println("\t" + h + ":" + h.random.nextInt());
+//			}
+//		}
+		Thread[] threads = new Thread[NUMBER_OF_THREADS];
+		for (int i = 0; i < NUMBER_OF_THREADS; i++) {
+			final int TID = i;
+			threads[TID] = new Thread("Worker Thread " + TID) {
+				public void run() {
+					for (int i = TID; i < grid.size(); i += NUMBER_OF_THREADS) {
+						Site site = grid.getSite(i);
+						if (site.domestic) {
+							site.replaceDeadHivesOrRequeenLiveHives();
+						}
+					}
+				}
+			};
+			threads[TID].start();
+		}
+		for (int i = 0; i < threads.length; i++) {
+			try {
+				threads[i].join();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+				System.exit(-1);
+			}
+		}
+		if (verbose) {
+			System.out.println("\tCompleted requeening. Swarm if appropriate.");
 		}
 		for (Site site : grid) {
-			// It is early summer. Bee keepers with two-year-old queens re-queen their
-			// hives. This includes queen breeders. Note that we do this AFTER replacing
-			// dead hives, so swarming has already taken place.
-			if (site.domestic) {
-				site.requeenIfOld();
-			}
+			site.swarmIfAppropriate();
 		}
 		for (Site site : grid) {
 			stats.hivesAtEndOfSummer(site);
@@ -184,6 +255,17 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 	}
 
 	// Some utilities
+
+	/**
+	 * Calls {@link #getProbabilityProperty(Properties, String)}, passing the
+	 * Properties object that the sim was constructed with.
+	 * 
+	 * @param propName the name of the property
+	 * @return the value of the property
+	 */
+	public double getProbabilityProperty(String propName) {
+		return getProbabilityProperty(props, propName);
+	}
 
 	/**
 	 * Parse a property that specifies a probability.
@@ -257,6 +339,42 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 	}
 
 	/**
+	 *
+	 * 
+	 * @param propName the name of the property
+	 * @return the value of the property
+	 */
+	public boolean getBooleanProperty(String propName) {
+		return getBooleanProperty(props, propName);
+	}
+
+	public static boolean getBooleanProperty(Properties props, String propName) {
+		if (!props.containsKey(propName)) {
+			throw new IllegalArgumentException("Property <" + propName + "> is not in the properties.");
+		}
+		String s = props.getProperty(propName);
+		try {
+			return Boolean.parseBoolean(s);
+		} catch (Throwable t) {
+			LOGGER.severe("The property <" + propName + "> must have a boolean value (true/false). It has: " + s);
+			System.exit(-1);
+		}
+		// unreachable code
+		return false;
+	}
+
+	/**
+	 * Calls {@link #getIntProperty(Properties, String)}, passing the Properties
+	 * object that the sim was constructed with.
+	 * 
+	 * @param propName the name of the property
+	 * @return the value of the property
+	 */
+	public int getIntProperty(String propName) {
+		return getIntProperty(props, propName);
+	}
+
+	/**
 	 * Parse a property that specifies an integer.
 	 * 
 	 * @param props    the properties
@@ -273,7 +391,8 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 			int i = Integer.parseInt(iStr);
 			return i;
 		} catch (NumberFormatException e) {
-			System.err.println("The value for the property '" + propName + "' is not a number---it is " + iStr);
+			System.err
+					.println("The value for the property '" + propName + "' is not an integer number---it is " + iStr);
 			System.exit(-1);
 		}
 		// unreachable code
@@ -334,11 +453,17 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 				System.exit(-1);
 			}
 			String[] tokens = arg.split("=");
-			props.setProperty(tokens[0].trim(), tokens[1].trim());
-			if (props.containsKey("logging")) {
-				String level = props.getProperty("logging");
-				LOGGER.setLevel(Level.parse(level));
+			if (tokens.length == 1) {
+				String name = tokens[0];
+				tokens = new String[2];
+				tokens[0] = name;
+				tokens[1] = "";
 			}
+			props.setProperty(tokens[0].trim(), tokens[1].trim());
+		}
+		if (props.containsKey("logging")) {
+			String level = props.getProperty("logging");
+			LOGGER.setLevel(Level.parse(level));
 		}
 		while (props.containsKey("properties_file")) {
 			String fname = props.getProperty("properties_file");
@@ -370,6 +495,22 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 
 	public Grid getGrid() {
 		return grid;
+	}
+
+	public double cappedNormal(Random rand, double mean, double stddev) {
+		double max = getProbabilityProperty("max_g");
+		double d = rand.nextGaussian() * stddev + mean;
+		if (d > mean + stddev)
+			d = mean + stddev;
+		if (d > max)
+			d = max;
+		if (d < mean - stddev)
+			d = mean - stddev;
+		return d;
+	}
+
+	public String getProperty(String propName) {
+		return getProperty(props, propName);
 	}
 
 }

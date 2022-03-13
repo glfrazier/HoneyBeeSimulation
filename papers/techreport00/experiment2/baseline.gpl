@@ -1,0 +1,12 @@
+# gnuplot file for experiment 2
+#
+set terminal jpeg
+set output "baseline.jpg"
+set title "Average Hive Strength Evolving to Equilibirum"
+set key right center
+
+set xlabel "Year"
+set ylabel "Average Hive Strength"
+
+plot '../../../results/techreport00/expt1/g0=0.90/000/avgFeralHiveStrength.csv' with lines title "Feral" , \
+     '../../../results/techreport00/expt2/g0=0.90,survivalprob.F=0.0/000/avgDomesticHiveStrength.csv' with lines title "Domestic"

@@ -1,0 +1,14 @@
+# gnuplot file for experiment 4
+#
+set terminal jpeg
+set output "avghivestrength.jpg"
+set title "Average Hive Strength, Varying Swarming Probability"
+set key right center
+
+set xlabel "Probability of Swarming"
+set ylabel "Average Hive Strength"
+
+plot '< "../../../scripts/tailaverager.sh" N 5 2 ../../../results/techreport00/expt4/prob_domestic=1.0,domestic_prob_swarm=%%/000/avgDomesticHiveStrength.csv 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0' with lines title "100% Domestic", \
+      '< "../../../scripts/tailaverager.sh" N 5 2 ../../../results/techreport00/expt4/prob_domestic=0.1,domestic_prob_swarm=%%/000/avgDomesticHiveStrength.csv 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0' with lines title "10% Domestic"
+
+

@@ -1,0 +1,13 @@
+# gnuplot file for experiment 4
+#
+set terminal jpeg
+set output "hivedeaths.jpg"
+set title "Normalized Hive Deaths, Varying Swarming Probability"
+set key right top
+
+set xlabel "Year"
+set ylabel "Normalized Number of Hive Deaths"
+
+plot '< "../../../scripts/normalizer.sh" D ../../../results/techreport00/expt3/g0=0.80,survivalprob.F=0.5,prob_domestic=1.0/000/domesticEowDeadHives.csv' with lines title "100% Domestic", \
+     '< "../../../scripts/normalizer.sh" D ../../../results/techreport00/expt3/g0=0.80,survivalprob.F=0.5,prob_domestic=0.1/000/domesticEowDeadHives.csv' with lines title "10% Domestic", \
+     '< "../../../scripts/normalizer.sh" F ../../../results/techreport00/expt3/g0=0.80,survivalprob.F=0.5,prob_domestic=0.1/000/feralEowDeadHives.csv' with lines title "Feral"

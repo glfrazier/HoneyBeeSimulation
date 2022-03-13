@@ -1,0 +1,12 @@
+
+
+name: Experiment 1
+name_data: $g_0 = 0.50$
+description: All of the hives are feral. 1,000,000 hives.
+
+g0_feral: 0.5
+
+results_dir:		expt1/g0=0.50
+
+
+properties_file: propertyfiles/techreport00/experiment1.1.prop

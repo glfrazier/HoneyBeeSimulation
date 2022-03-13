@@ -1,0 +1,16 @@
+set terminal jpeg
+set output "deadhives.40.jpg"
+# set title "Dead Hives and Avg P_S"
+set title "g_0 = 0.4"
+set key bottom
+set xlabel "Year"
+set ylabel "Dead Hives"
+set y2label "Avg Probability of Survival"
+
+set ytics nomirror
+set y2tics 0, 0.2, 1.2 nomirror
+set y2range [0:1]
+
+# plot sin(1/x) axis x1y1,100*cos(x) axis x1y2
+plot '< "head.exe" -n 81 ../../../results/techreport00/expt1/g0=0.40/000/feralDeadHives.csv' with lines title "Dead Hives" axis x1y1, \
+     '< "head.exe" -n 81 ../../../results/techreport00/expt1/g0=0.40/000/avgFeralHiveStrength.csv' with lines title "Avg P_S" axis x1y2

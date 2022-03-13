@@ -57,32 +57,12 @@ number_of_hives_m2: 0.05
 # number_of_hives_min: 1
 # number_of_hives_max: 50
 
-max_hive_age:		4
-
-# For domestic sites, the earliest age at which a living hive might be requeened
+# For domestic sites, the age at which a hive is requeened
 #
-min_requeen_age:	2
+requeen_age: 2
 
-# The probability that a living queen in a domestic hive might be replaced.
-#
-requeen_probability:	0.7
 
-# The probability that a domestic hive will swarm. My intuition is to set this lower
-# than the feral swarming probability because beekeepers try to prevent swarming, e.g.,
-# by providing many frames.
-#
-domestic_prob_swarm:	0.3
-
-# The probability that a feral hive will swarm.
-#
-feral_prob_swarm:	0.6
-
-# For now, the default initial gene is approximately the feral gene strength
-# at equilibrium (approximately). TODO: separate the feral and domestic initial
-# gene strength, so that experiments can be started at a point where a previous
-# experiment showed equilibrium.
-#
-g0_feral: 0.82
+initial_gene: 0.95
 
 # The number of years to simulate
 #
@@ -99,7 +79,7 @@ queen_breeder_hive_count:	100
 # The hive survival model can be 'linear' or 'sigmoid'. Or the name of
 # a HiveSurvivalPropbabilityModel class, for 3rd party models.
 #
-#survivalprob.model:	linear
+survivalprob.model:	linear
 
 # The distance from the base survival probability to 1.0 that feeding
 # a hive boosts its survival chances. A value from 0.0 (no improvement)
@@ -112,10 +92,8 @@ survivalprob.F:		0.5
 # left or right). See the HiveSurvivalProbabilityModel javadocs for more-
 # complete documentation.
 #
-#survivalprob.M:		20
-#survivalprob.A:		-1
-
-feral_uses_domestic_survival_model: false
+survivalprob.M:		20
+survivalprob.A:		-1
 
 # Characterizes how worker bees and queens inhereit survival strength from
 # their parents. (Drones have the same genetic strength as their mother.)
@@ -129,11 +107,11 @@ inheritance_mode: 	AVERAGE
 # The child's genetic strength is chosen from a normal distribution, with mean
 # described above and standard deviation specified:
 #
-stddev_g:	0.05
+inheritance_stddev: 	0.05
 
 # If the child's health is above the max value or below 0.0, it is clipped.
 #
-max_g:		0.90
+inheritance_max_strength:	0.95
 
 # The base directory for checkpoints and results
 #
@@ -146,3 +124,4 @@ checkpoint_dir: 	checkpoints
 # The directory to store results in.
 #
 results_dir:		results
+

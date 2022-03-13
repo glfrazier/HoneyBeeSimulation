@@ -1,0 +1,6 @@
+requeen_probability: 1.0
+properties_file: propertyfiles/techreport00/experiment7/10000qbs.prop
+results_dir: expt7/qb=10000,requeening
+min_requeen_age: 2
+domestic_prob_swarm=0.0
+sim_length: 1000

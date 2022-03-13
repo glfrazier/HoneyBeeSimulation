@@ -1,0 +1,12 @@
+name: Experiment 3
+name_data: $g_0 = 0.90, survivalprob.F=0.5, prob_domestic=1.0$
+description: Identical to experiment 2.1, but differing g_0 and sim_length
+
+survivalprob.F:         0.5
+g0_feral: 0.8
+sim_length: 100
+
+#
+results_dir:		expt3/g0=0.80,survivalprob.F=0.5,prob_domestic=1.0
+
+properties_file: propertyfiles/techreport00/experiment2.1.prop

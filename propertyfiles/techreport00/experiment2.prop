@@ -1,0 +1,25 @@
+name: Experiment 2
+name_data: $g_0 = 0.90, survivalprob.F=0.0, prob_domestic=1.0$
+description: All of the hives are domestic. 10,000 hives.
+
+g0_feral: 0.90
+
+requeen_probability:    0.0
+
+survivalprob.F:         0.0
+
+# The probability that a site is domestic. Every site is either
+#domestic or feral.
+#
+prob_domestic: 1
+
+# Every domestic hive is a queen breeder
+#
+number_queen_breeders:    	all
+queen_breeder_hive_count:	1
+
+# The directory to store results in.
+#
+results_dir:		expt2/g0=0.90,survivalprob.F=0.0
+
+properties_file: propertyfiles/techreport00/reportdefault.prop

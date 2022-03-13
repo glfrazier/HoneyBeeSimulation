@@ -1,0 +1,18 @@
+# gnuplot file for experiment 4
+#
+set terminal jpeg
+set output "hivedeaths.jpg"
+set title "Normalized Hive Deaths, Varying Swarming Probability"
+set key right top
+
+set xlabel "Probability of Swarming"
+set ylabel "Normalized Number of Hive Deaths"
+
+plot '< "../../../scripts/tailaverager.sh" D 5 2 ../../../results/techreport00/expt4/prob_domestic=1.0,domestic_prob_swarm=%%/000/domesticDiedOfOldAge.csv 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0' with lines title "100% Domestic, Old Age", \
+     '< "../../../scripts/tailaverager.sh" D 5 2 ../../../results/techreport00/expt4/prob_domestic=1.0,domestic_prob_swarm=%%/000/domesticKilledByWinter.csv 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0' with lines title "100% Domestic, Winter", \
+     '< "../../../scripts/tailaverager.sh" D 5 2 ../../../results/techreport00/expt4/prob_domestic=1.0,domestic_prob_swarm=%%/000/domesticEowDeadHives.csv 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0' with lines title "100% Domestic, Total Dead in Year", \
+     '< "../../../scripts/tailaverager.sh" D 5 2 ../../../results/techreport00/expt4/prob_domestic=0.1,domestic_prob_swarm=%%/000/domesticDiedOfOldAge.csv 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0' with lines title "10% Domestic, Old Age", \
+     '< "../../../scripts/tailaverager.sh" D 5 2 ../../../results/techreport00/expt4/prob_domestic=0.1,domestic_prob_swarm=%%/000/domesticKilledByWinter.csv 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0' with lines title "10% Domestic, Winter", \
+     '< "../../../scripts/tailaverager.sh" D 5 2 ../../../results/techreport00/expt4/prob_domestic=0.1,domestic_prob_swarm=%%/000/domesticEowDeadHives.csv 0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0' with lines title "10% Domestic, Total Dead in Year"
+
+

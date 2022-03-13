@@ -36,8 +36,8 @@ public class InheritanceModel implements Serializable {
 
 	public InheritanceModel(Properties props) {
 		mode = Mode.valueOf(BeeHealthSimulation.getProperty(props, "inheritance_mode"));
-		stddev = BeeHealthSimulation.getDoubleProperty(props, "inheritance_stddev");
-		maxStrength = BeeHealthSimulation.getProbabilityProperty(props, "inheritance_max_strength");
+		stddev = BeeHealthSimulation.getDoubleProperty(props, "stddev_g");
+		maxStrength = BeeHealthSimulation.getProbabilityProperty(props, "max_g");
 	}
 
 	/**

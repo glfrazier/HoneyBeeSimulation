@@ -5,16 +5,22 @@ import static java.util.logging.Level.FINEST;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Site implements Iterable<Hive>, Serializable {
 
 	private static final long serialVersionUID = 1L;
+	
+	private static final Set<Site> UNIQUE = new HashSet<Site>();  
 
 	/** Reference to the grid */
 	private Grid grid;
@@ -28,10 +34,13 @@ public class Site implements Iterable<Hive>, Serializable {
 	 * selected from an exponential distribution.
 	 */
 	int numberOfHives;
+
 	/** The Hive(s) at this site. */
-	List<Hive> hives;
+	private List<Hive> hives;
+
 	/** Track whether this site has been initialized yet. */
 	public boolean initialized = false;
+
 	/** True if this is a domestic site. (Kept bees.) */
 	boolean domestic;
 
@@ -50,75 +59,70 @@ public class Site implements Iterable<Hive>, Serializable {
 
 	private int swarmDistance;
 
-	private int maxDomesticAge;
+	private final BeeHealthSimulation sim;
 
 	public Site(int x, int y, long seed, Grid grid) {
 		this.x = x;
 		this.y = y;
 		this.grid = grid;
-		this.hives = new ArrayList<>();
+		this.sim = grid.getSim();
+		this.hives = new LinkedList<>();
 		this.random = new Random();
 		this.random.setSeed(seed);
+		if (UNIQUE.contains(this)) {
+			throw new IllegalArgumentException("Creating " + this + " for the second time!");
+		}
+		UNIQUE.add(this);
 	}
 
 	public void setQueenBreeder() {
 		queenBreeder = true;
 	}
+	
+	public boolean isQueenBreeder() {
+		return queenBreeder;
+	}
 
 	@Override
 	public Iterator<Hive> iterator() {
-		return hives.iterator();
+		List<Hive> hiveCopy = new ArrayList<>(hives.size());
+		synchronized (this) {
+			hiveCopy.addAll(hives);
+		}
+		return hiveCopy.iterator();
 	}
 
-	private static final boolean IF_DEAD = true;
-	private static final boolean IF_TOO_OLD = true;
-	private static final boolean NOT_IF_DEAD = false;
-	private static final boolean NOT_IF_TOO_OLD = false;
-
-	public void replaceDeadHives() {
-		replaceHives(IF_DEAD, NOT_IF_TOO_OLD);
-	}
-
-	private void replaceHives(boolean ifDead, boolean ifTooOld) {
+	public void replaceDeadHivesOrRequeenLiveHives() {
 		if (LOGGER.getLevel() == FINEST) {
-			LOGGER.finest(this + " entered replaceHives, ifDead=" + ifDead + ", ifTooOld=" + ifTooOld
-					+ ", hives.size()=" + hives.size());
+			LOGGER.finest(this + " entered replaceHives, hives.size()=" + hives.size());
+		}
+		if (!this.domestic) {
+			LOGGER.severe("replaceDedHivesOrRequeenLiveHives() was invoked on a feral site.");
+			System.exit(-1);
 		}
 		// A map to hold the replacement hives
-		Map<Hive,Hive> replacementHives = new HashMap<>();
+		Map<Hive, Hive> replacementHives = new LinkedHashMap<>();
 		// Look at each hive at this site
-		for (Iterator<Hive> iter = hives.iterator(); iter.hasNext();) {
-			Hive hive = iter.next();
-			// If the hive is dead, replace it
-			if ((ifDead && hive.dead) || (ifTooOld && (hive.age > maxDomesticAge))) {
-				if (domestic) {
-					// If this is a domestic site, the keeper buys a new hive
-					replacementHives.put(hive, grid.purchaseMatedQueen(this, random));
-				}
-				// If this is a wild site, the dead hive is replaced by a neighboring swarm, if
-				// one exists
-				else {
-					List<Hive> nbrHives = grid.getNeighborhoodHives(this, swarmDistance);
-					nbrHives.remove(hive);
-					for (Hive nbrHive : nbrHives) {
-						Hive h = nbrHive.swarm(this);
-						if (h != null) {
-							// If h is not null, then nbrHive successfully swarmed and is replacing this
-							// hive.
-							replacementHives.put(hive, h);
-							break;
-						}
-					}
-				}
+		List<Hive> hiveCopy = new ArrayList<>(hives.size());
+		synchronized (this) {
+			hiveCopy.addAll(hives);
+		}
+		for (Hive hive : hiveCopy) {
+			// If the hive is dead or being requeened, replace it
+			if (hive.dead || hive.requeen()) {
+				// If this is a domestic site, the keeper buys a new hive
+				replacementHives.put(hive, grid.purchaseMatedQueen(this, random));
 			}
 		}
-		for(Hive h : replacementHives.keySet()) {
-			hives.remove(h);
-			hives.add(replacementHives.get(h));
+		for (Hive hiveToReplace : replacementHives.keySet()) {
+			hiveCopy.remove(hiveToReplace);
+			hiveCopy.add(replacementHives.get(hiveToReplace));
+		}
+		synchronized (this) {
+			hives = hiveCopy;
 		}
 		if (LOGGER.getLevel() == FINEST) {
-			LOGGER.finest(this + " leaving replaceHives, ifDead=" + ifDead + ", ifTooOld=" + ifTooOld
-					+ ", hives.size()=" + hives.size());
+			LOGGER.finest(this + " leaving replaceHives, hives.size()=" + hives.size());
 		}
 	}
 
@@ -127,9 +131,10 @@ public class Site implements Iterable<Hive>, Serializable {
 	 * when stochastic decisions must be made.
 	 * 
 	 * @param props
+	 * @param allDomesticSitesAreQueenBreeders
 	 */
-	public synchronized void initialize(Properties props) {
-		LOGGER.finest("Initializing " + this);
+	public void initialize(Properties props, boolean allDomesticSitesAreQueenBreeders) {
+		// LOGGER.finest("Initializing " + this);
 		if (initialized) {
 			LOGGER.warning("Attempted to initialize " + this + " multiple times.");
 			return;
@@ -138,29 +143,34 @@ public class Site implements Iterable<Hive>, Serializable {
 		int numberOfHives = 1;
 
 		// Domestic vs. Feral
-		double pDomestic = BeeHealthSimulation.getProbabilityProperty(props, "prob_domestic");
+		double pDomestic = sim.getProbabilityProperty("prob_domestic");
 		domestic = random.nextDouble() < pDomestic;
 
 		// If domestic, the number of hives is randomly selected from a range
 		if (domestic) {
-			String numberOfHivesDistro = BeeHealthSimulation.getProperty(props, "number_of_hives_distribution");
-			if (numberOfHivesDistro.equals("three-way-norm")) {
-				double m0 = BeeHealthSimulation.getDoubleProperty(props, "number_of_hives_m0");
-				double m1 = BeeHealthSimulation.getDoubleProperty(props, "number_of_hives_m1");
-				double m2 = BeeHealthSimulation.getDoubleProperty(props, "number_of_hives_m2");
-				if (m0 + m1 + m2 != 1.0) {
-					System.err
-							.println("In the 'three-way-norm' number-of-hives distribution, m1+m2+m3 must equal 1.0.");
+			if (allDomesticSitesAreQueenBreeders) {
+				numberOfHives = sim.getIntProperty("queen_breeder_hive_count");
+				setQueenBreeder();
+			} else {
+				String numberOfHivesDistro = sim.getProperty("number_of_hives_distribution");
+				if (numberOfHivesDistro.equals("three-way-norm")) {
+					double m0 = BeeHealthSimulation.getDoubleProperty(props, "number_of_hives_m0");
+					double m1 = BeeHealthSimulation.getDoubleProperty(props, "number_of_hives_m1");
+					double m2 = BeeHealthSimulation.getDoubleProperty(props, "number_of_hives_m2");
+					if (m0 + m1 + m2 != 1.0) {
+						System.err.println(
+								"In the 'three-way-norm' number-of-hives distribution, m1+m2+m3 must equal 1.0.");
+						System.exit(-1);
+					}
+					numberOfHives = threeWayNorm(m0, m1, m2);
+				} else if (numberOfHivesDistro.equals("linear")) {
+					int min = BeeHealthSimulation.getIntProperty(props, "number_of_hives_min");
+					int max = BeeHealthSimulation.getIntProperty(props, "number_of_hives_max");
+					numberOfHives = random.nextInt(1 + max - min) + min;
+				} else {
+					System.err.println("The 'number_of_hives_distro' <" + numberOfHivesDistro + "> is not supported.");
 					System.exit(-1);
 				}
-				numberOfHives = threeWayNorm(m0, m1, m2);
-			} else if (numberOfHivesDistro.equals("linear")) {
-				int min = BeeHealthSimulation.getIntProperty(props, "number_of_hives_min");
-				int max = BeeHealthSimulation.getIntProperty(props, "number_of_hives_max");
-				numberOfHives = random.nextInt(1 + max - min) + min;
-			} else {
-				System.err.println("The 'number_of_hives_distro' <" + numberOfHivesDistro + "> is not supported.");
-				System.exit(-1);
 			}
 		}
 
@@ -175,7 +185,6 @@ public class Site implements Iterable<Hive>, Serializable {
 		}
 		LOGGER.finest("Finish Initializing " + this);
 
-		maxDomesticAge = BeeHealthSimulation.getIntProperty(props, "requeen_age");
 		minDrones = BeeHealthSimulation.getIntProperty(props, "min_drones");
 		maxDrones = BeeHealthSimulation.getIntProperty(props, "max_drones");
 		matingFlightDistance = BeeHealthSimulation.getIntProperty(props, "mating_flight_distance");
@@ -185,13 +194,15 @@ public class Site implements Iterable<Hive>, Serializable {
 		// Initialize each hive at this site. Note that ALL HIVES BEGIN WITH EQUALLY
 		// ROBUST GENES. Which is not the same as identical genes.
 		for (int i = 0; i < numberOfHives; i++) {
-			double q = BeeHealthSimulation.getProbabilityProperty(props, "initial_gene");
+			double g0 = BeeHealthSimulation.getProbabilityProperty(props, "g0_feral");
+			double stddev = BeeHealthSimulation.getProbabilityProperty(props, "stddev_g");
+			double q = grid.getSim().cappedNormal(random, g0, stddev);
 			int minDrones = BeeHealthSimulation.getIntProperty(props, "min_drones");
 			int maxDrones = BeeHealthSimulation.getIntProperty(props, "max_drones");
 			int droneCount = random.nextInt(1 + maxDrones - minDrones) + minDrones;
 			double[] d = new double[droneCount];
 			for (int j = 0; j < d.length; j++) {
-				d[j] = q;
+				d[j] = grid.getSim().cappedNormal(random, g0, stddev);
 			}
 			Hive h = new Hive(q, d, this, random.nextLong());
 			hives.add(h);
@@ -215,10 +226,6 @@ public class Site implements Iterable<Hive>, Serializable {
 		return x;
 	}
 
-	public synchronized boolean isInitialized() {
-		return initialized;
-	}
-
 	/**
 	 * Return an array of drone genes that the queen acquired during her mating
 	 * flight.
@@ -233,7 +240,7 @@ public class Site implements Iterable<Hive>, Serializable {
 		List<Hive> droneProvidingHives = null;
 		for (Direction d : dirs) {
 			Site s = grid.getSiteInDirection(this, d, matingFlightDistance);
-			droneProvidingHives = grid.getNeighborhoodHives(s, droneParticipationDistance);
+			droneProvidingHives = grid.getNeighborhoodLivingHives(s, droneParticipationDistance);
 			droneProvidingHives.remove(hive);
 			if (!droneProvidingHives.isEmpty()) {
 				break;
@@ -280,10 +287,6 @@ public class Site implements Iterable<Hive>, Serializable {
 		return "Site[" + x + "," + y + "]" + soubrequet;
 	}
 
-	public void requeenIfOld() {
-		replaceHives(NOT_IF_DEAD, IF_TOO_OLD);
-	}
-
 	public static String getStateCSVHeader() {
 		return "x,y,domestic,queen breeder,number of hives, number of live hives, number of dead hives, avg live hive strength, max live hive strength, min live hive strength";
 	}
@@ -316,6 +319,46 @@ public class Site implements Iterable<Hive>, Serializable {
 				.append(hives.size()).append(',').append(hives.size() - dead).append(',').append(dead).append(',')
 				.append(avgStrength).append(',').append(maxStrength).append(',').append(minStrength);
 		return result.toString();
+	}
+
+	/**
+	 * Check each hive to see if it will swarm.
+	 */
+	public void swarmIfAppropriate() {
+		List<Hive> hiveCopy = new ArrayList<>(hives.size());
+		synchronized (this) {
+			hiveCopy.addAll(hives);
+		}
+		for (Hive h : hiveCopy) {
+			h.swarmIfAppropriate();
+		}
+	}
+
+	public Hive findNearbyFeralDeadHive() {
+		List<Hive> available = grid.getNeighborhoodFeralDeadHives(this, swarmDistance);
+		if (available.size() == 0) {
+			return null;
+		}
+		return available.get(random.nextInt(available.size()));
+	}
+
+	public synchronized List<Hive> syncCopyHives() {
+		List<Hive> result = new ArrayList<>(hives.size());
+		result.addAll(hives);
+		return result;
+	}
+
+	public boolean equals(Object o) {
+		if (!(o instanceof Site)) {
+			return false;
+		}
+		Site s = (Site) o;
+		return x == s.x && y == s.y;
+	}
+
+	@Override
+	public int hashCode() {
+		return Integer.hashCode(x) + Integer.hashCode(y);
 	}
 
 }

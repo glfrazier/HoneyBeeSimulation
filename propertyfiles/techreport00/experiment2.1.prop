@@ -1,0 +1,10 @@
+name: Experiment 2.1
+name_data: $g_0 = 0.90, survivalprob.F=0.5, prob_domestic=1.0$
+description: All of the hives are domestic. 10,000 hives.
+
+survivalprob.F:         0.5
+
+#
+results_dir:		expt2/g0=0.90,survivalprob.F=0.5
+
+properties_file: propertyfiles/techreport00/experiment2.prop

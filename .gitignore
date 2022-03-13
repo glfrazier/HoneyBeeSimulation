@@ -1,4 +1,9 @@
 .classpath
 .project
+*.jpg
+*.old
+*.unused
 bin/
+unused/
 results/
+byothers/
