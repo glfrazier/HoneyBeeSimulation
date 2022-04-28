@@ -4,6 +4,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Constructor;
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 import java.util.logging.ConsoleHandler;
@@ -245,13 +248,27 @@ public class BeeHealthSimulation implements Serializable, Runnable {
 		if (verbose) {
 			System.out.println("\tCompleted requeening. Swarm if appropriate.");
 		}
+		List<Hive> hiveList = new LinkedList<>();
 		for (Site site : grid) {
-			site.swarmIfAppropriate();
+			hiveList.addAll(site.syncCopyHives());
+		}
+		hiveList = randomizeList(hiveList);
+		for(Hive h : hiveList) {
+			h.swarmIfAppropriate();
 		}
 		for (Site site : grid) {
 			stats.hivesAtEndOfSummer(site);
 		}
 		stats.endOfSummer();
+	}
+
+	private List<Hive> randomizeList(List<Hive> hiveList) {
+		List<Hive> result = new ArrayList<>(hiveList.size());
+		while(!hiveList.isEmpty()) {
+			int i = random.nextInt(hiveList.size());
+			result.add(hiveList.remove(i));
+		}
+		return result;
 	}
 
 	// Some utilities

@@ -35,6 +35,9 @@ public class Hive implements Serializable {
 	public Hive(double queen, double[] drones, Site site, long seed) {
 		this.queenGene = queen;
 		this.droneGenes = drones;
+		if (droneGenes == null) {
+			throw new NullPointerException("Constructed hive with null drones!");
+		}
 		this.site = site;
 		this.random = new Random(seed);
 		finishConstruction(site.getGrid().getSim(), site.domestic);
@@ -43,6 +46,9 @@ public class Hive implements Serializable {
 	private Hive(double q, double[] d, long seed, boolean domestic, BeeHealthSimulation sim) {
 		this.queenGene = q;
 		this.droneGenes = d;
+		if (droneGenes == null) {
+			throw new NullPointerException("Constructed hive with null drones!");
+		}
 		this.site = null;
 		this.random = new Random(seed);
 		finishConstruction(sim, domestic);
@@ -125,7 +131,7 @@ public class Hive implements Serializable {
 	}
 
 	public double getBabyQueen() {
-		return iModel.getChildQueen(queenGene, droneGenes, random);
+		return iModel.getChildQueen(queenGene, droneGenes, random, dead);
 	}
 
 	public double getBabyDrone() {
@@ -239,6 +245,11 @@ public class Hive implements Serializable {
 		this.age = swarmingBees.age;
 		this.dead = false;
 		this.canBreed = false;
+	}
+	
+	public String toString() {
+		String prefix = (dead ? "Dead" : "Living") + (site == null ? " unaffiliated" : (site.domestic ? " Domestic" : " Feral"));
+		return prefix + " hive" + (site == null ? "" : " @ " + site.toString());
 	}
 
 }

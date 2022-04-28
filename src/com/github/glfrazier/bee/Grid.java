@@ -105,6 +105,12 @@ public class Grid implements Iterable<Site>, Serializable {
 
 		// Fly the queen
 		double[] drones = motherHive.getSite().matingFlight(motherHive);
+		
+		// HACK!! If there were no drones in the region, then use the drones from the mother hive.
+		if (drones == null) {
+			System.out.println("Using the mother-hive's drones.");
+			drones = motherHive.droneGenes;
+		}
 
 		// Create and return the new hive
 		Hive hive = new Hive(queen, drones, site, siteRandom.nextLong());

@@ -67,9 +67,20 @@ public class InheritanceModel implements Serializable {
 	 * Randomly select one of the drones, and then get an offspring between that
 	 * drone and the queen.
 	 */
-	public double getChildQueen(double queen, double[] drones, Random rand) {
-		int index = rand.nextInt(drones.length);
-		return getChildQueen(queen, drones[index], rand);
+	public double getChildQueen(double queen, double[] drones, Random rand, boolean dead) {
+		if (dead) {
+			System.err.println("An attempt was made to obtain a child queen from a dead hive.");
+			System.exit(-1);
+		}
+		try {
+			int index = rand.nextInt(drones.length);
+			return getChildQueen(queen, drones[index], rand);
+		} catch (Throwable t) {
+			t.printStackTrace();
+			System.err.println("queen=" + queen + ", drones=" + drones + ", rand=" + rand + ", dead=" + dead);
+			System.exit(-1);
+		}
+		return 0;
 	}
 
 	/**
