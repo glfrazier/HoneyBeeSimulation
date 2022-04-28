@@ -16,6 +16,6 @@ unset ytics
 set label "10 queen breeders" at 0.77, 1.35 font ",10" tc rgb "red"
 set label "1 queen breeder" at 0.735, 2.35 font ",10" tc rgb "blue"
 
-plot '< "../../../scripts/tailaverager.sh" Y=1 N 1 2 ../../../results/techreport00/expt5/qb=10/00%%/avgDomesticHiveStrength.csv 0 1 2 3 4' with points pt 6 ps 1 lc rgb "red" notitle, \
-     '< "../../../scripts/tailaverager.sh" Y=2 N 1 2 ../../../results/techreport00/expt5/qb=1/00%%/avgDomesticHiveStrength.csv 0 1 2 3 4' with points pt 6 ps 1 lc rgb "blue" notitle
+plot '< "../../../scripts/tailaverager.sh" Y=1 N 1 2 ../../../results/techreport00/expt6/qb=10/00%%/avgDomesticHiveStrength.csv 0 1 2 3 4' with points pt 6 ps 1 lc rgb "red" notitle, \
+     '< "../../../scripts/tailaverager.sh" Y=2 N 1 2 ../../../results/techreport00/expt6/qb=1/00%%/avgDomesticHiveStrength.csv 0 1 2 3 4' with points pt 6 ps 1 lc rgb "blue" notitle
 
