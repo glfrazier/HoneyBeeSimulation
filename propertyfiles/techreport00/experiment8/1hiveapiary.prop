@@ -1,0 +1,32 @@
+# one million sites.
+#
+edge_length:	1000
+
+prob_domestic: 0.01
+
+number_of_hives_distribution: linear
+number_of_hives_min: 1
+number_of_hives_max: 1
+
+# The probability that a living queen in a domestic hive might be replaced.
+#
+requeen_probability:	0.5
+
+domestic_prob_swarm:	0.5
+
+feral_prob_swarm:	1.0
+
+# The number of sites that are queen breeders.
+#
+number_queen_breeders:		10
+
+queen_breeder_hive_count:	1
+
+survivalprob.F:		0.5
+
+# The directory to store results in.
+#
+results_dir:		expt8/apiary_size=1
+
+properties_file: propertyfiles/techreport00/reportdefault.prop
+

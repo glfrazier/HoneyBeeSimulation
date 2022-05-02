@@ -1,0 +1,9 @@
+number_of_hives_min: 10
+number_of_hives_max: 10
+
+queen_breeder_hive_count:	10
+
+results_dir:		expt8/apiary_size=10
+
+properties_file: propertyfiles/techreport00/experiment8/1hiveapiary.prop
+
